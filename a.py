@@ -173,8 +173,8 @@ while state < N ** 2:
 # upper_limitを超えるまで取りにいく
 # lower_limitを下回るまで配りにいく
 # またupper_limitを超えるまで取りにいく
-upper_limit = 200
-lower_limit = 100
+upper_limit = 150
+lower_limit = 30
 
 for i in range(N):
     for j in range(N):
@@ -192,8 +192,8 @@ mode = "pick"
 state = sum(map(sum, progress))
 
 
-def move_to_target(track, target):
-    global move, grid, cost_stack, track_v, v, d
+def move_to_pick_target(target):
+    global move, grid, cost_stack, track_v, v, d, track
 
     if target[0] - track[0] > 0:
         move = "D"
@@ -233,6 +233,104 @@ def move_to_target(track, target):
                 cost_stack += d
 
 
+def move_to_pick_target_dp(target):
+    global move, grid, cost_stack, track_v, v, d, track, N
+
+    # targetに最短距離で移動するまでに置く量を最大化する
+    dp = [[[0, (-1, -1)] for _ in range(N)] for _ in range(N)]
+
+    if track[0] <= target[0] and track[1] <= target[1]:
+        for i in range(track[0], target[0] + 1):
+            for j in range(track[1], target[1] + 1):
+                value = dp[i][j][0] + abs(min(0, grid[i][j]))
+                if i + 1 <= target[0] and dp[i + 1][j][0] < value:
+                    dp[i + 1][j][0] = value
+                    dp[i + 1][j][1] = (i, j)
+                if j + 1 <= target[1] and dp[i][j + 1][0] < value:
+                    dp[i][j + 1][0] = value
+                    dp[i][j + 1][1] = (i, j)
+    elif track[0] <= target[0] and track[1] > target[1]:
+        for i in range(track[0], target[0] + 1):
+            for j in range(track[1], target[1] - 1, -1):
+                value = dp[i][j][0] + abs(min(0, grid[i][j]))
+                if i + 1 <= target[0] and dp[i + 1][j][0] < value:
+                    dp[i + 1][j][0] = value
+                    dp[i + 1][j][1] = (i, j)
+                if j - 1 >= target[1] and dp[i][j - 1][0] < value:
+                    dp[i][j - 1][0] = value
+                    dp[i][j - 1][1] = (i, j)
+    elif track[0] > target[0] and track[1] <= target[1]:
+        for i in range(track[0], target[0] - 1, -1):
+            for j in range(track[1], target[1] + 1):
+                value = dp[i][j][0] + abs(min(0, grid[i][j]))
+                if i - 1 >= target[0] and dp[i - 1][j][0] < value:
+                    dp[i - 1][j][0] = value
+                    dp[i - 1][j][1] = (i, j)
+                if j + 1 <= target[1] and dp[i][j + 1][0] < value:
+                    dp[i][j + 1][0] = value
+                    dp[i][j + 1][1] = (i, j)
+    else:
+        for i in range(track[0], target[0] - 1, -1):
+            for j in range(track[1], target[1] - 1, -1):
+                value = dp[i][j][0] + abs(min(0, grid[i][j]))
+                if i - 1 >= target[0] and dp[i - 1][j][0] < value:
+                    dp[i - 1][j][0] = value
+                    dp[i - 1][j][1] = (i, j)
+                if j - 1 >= target[1] and dp[i][j - 1][0] < value:
+                    dp[i][j - 1][0] = value
+                    dp[i][j - 1][1] = (i, j)
+
+    point_list = [target]
+    dp_item = dp[target[0]][target[1]]
+    while dp_item[1] != (-1, -1):
+        point_list.append((dp_item[1][0], dp_item[1][1]))
+        dp_item = dp[dp_item[1][0]][dp_item[1][1]]
+
+    point_list.append(track)
+    point_list.reverse()
+    print(track, target, file=sys.stderr)
+    print(point_list, file=sys.stderr)
+    print(file=sys.stderr)
+
+
+def move_to_put_target(target):
+    global move, v, cost_stack, d, track_v, grid, track
+    if target[0] - track[0] > 0:
+        move = "D"
+        v = 1
+    else:
+        move = "U"
+        v = -1
+    for _ in range(abs(target[0] - track[0])):
+        ans_stack.append(move)
+        cost_stack += track_v + 100
+        track[0] += v
+        # 経路上で取れる分は取る
+        if grid[track[0]][track[1]] > 0:
+            d = grid[track[0]][track[1]]
+            ans_stack.append(f"+{d}")
+            grid[track[0]][track[1]] -= d
+            track_v += d
+            cost_stack += d
+    if target[1] - track[1] > 0:
+        move = "R"
+        v = 1
+    else:
+        move = "L"
+        v = -1
+    for _ in range(abs(target[1] - track[1])):
+        ans_stack.append(move)
+        cost_stack += track_v + 100
+        track[1] += v
+        # 経路上で取れる分は取る
+        if grid[track[0]][track[1]] > 0:
+            d = grid[track[0]][track[1]]
+            ans_stack.append(f"+{d}")
+            grid[track[0]][track[1]] -= d
+            track_v += d
+            cost_stack += d
+
+
 while state < N ** 2:
     # print(state, track, track_v, cost_stack, file=sys.stderr)
 
@@ -263,7 +361,8 @@ while state < N ** 2:
         # 移動する
         # 経路で、置いた方がよい場所があれば取る
         # 先に縦を合わせる
-        move_to_target(track, target)
+        # move_to_pick_target_dp(target)
+        move_to_pick_target(target)
 
         # 取る
         d = grid[target[0]][target[1]]
@@ -289,41 +388,7 @@ while state < N ** 2:
         # 移動する
         # 経路で、取った方がよい場所があれば取る
         # 先に縦を合わせる
-        if target[0] - track[0] > 0:
-            move = "D"
-            v = 1
-        else:
-            move = "U"
-            v = -1
-        for _ in range(abs(target[0] - track[0])):
-            ans_stack.append(move)
-            cost_stack += track_v + 100
-            track[0] += v
-            # 経路上で取れる分は取る
-            if grid[track[0]][track[1]] > 0:
-                d = grid[track[0]][track[1]]
-                ans_stack.append(f"+{d}")
-                grid[track[0]][track[1]] -= d
-                track_v += d
-                cost_stack += d
-
-        if target[1] - track[1] > 0:
-            move = "R"
-            v = 1
-        else:
-            move = "L"
-            v = -1
-        for _ in range(abs(target[1] - track[1])):
-            ans_stack.append(move)
-            cost_stack += track_v + 100
-            track[1] += v
-            # 経路上で取れる分は取る
-            if grid[track[0]][track[1]] > 0:
-                d = grid[track[0]][track[1]]
-                ans_stack.append(f"+{d}")
-                grid[track[0]][track[1]] -= d
-                track_v += d
-                cost_stack += d
+        move_to_put_target(target)
 
         # 置く
         d = min(track_v, abs(grid[target[0]][target[1]]))
